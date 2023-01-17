@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 		do
 		{
 			base_address = get_base_address(game[game_index].game_name, pid);
-			if (process_ended(game[game_index].game_name, process_handle)) break;
+			// if (process_ended(game[game_index].game_name, process_handle)) break;
 		}
 		while (!base_address);
 		process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
@@ -149,12 +149,13 @@ int main(int argc, char** argv)
 			ReadProcessMemory(process_handle, (void*)(death_addr + game[game_index].offset[i]), &death_addr, sizeof(death_addr), 0);
 		}
 		
+		death_addr = death_addr + game[game_index].offset[game[game_index].offset_count-1];
 		printf("death count address: 0x%llX\n", death_addr);
 		sprintf(death_counter_string, "Deaths: %d", deaths);
 
 		while (1)
 		{
-			ReadProcessMemory(process_handle, (void*)(death_addr + game[game_index].offset[game[game_index].offset_count-1]), &new_deaths, sizeof(deaths), 0);
+			ReadProcessMemory(process_handle, (void*)(death_addr), &new_deaths, sizeof(deaths), 0);
 
 			if (new_deaths > deaths)
 			{
