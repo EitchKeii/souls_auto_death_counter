@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+typedef uint8_t   b8;
 typedef uint8_t   u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -70,12 +71,25 @@ u8* get_base_address(const char* module_name, unsigned long process_id)
 	return mod_entry.modBaseAddr;
 }
 
-void print_to_file(char* string)
+void print_to_file(const char* string)
 {
 	FILE* fp = fopen("deaths.txt", "w");
 	if (!fp) exit(1); 
 	fprintf(fp, "%s", string);
 	fclose(fp);
+}
+
+b8 process_ended(const char* process_name, void* process_handle)
+{
+	DWORD exit_code;
+	GetExitCodeProcess(process_handle, &exit_code);
+	// printf("exit code: %d\n", exit_code);
+	if (exit_code == 0)
+	{
+		printf("%s has been closed.\n", process_name);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 int main(int argc, char** argv)
@@ -88,6 +102,7 @@ int main(int argc, char** argv)
 	void* process_handle = NULL;
 	char* death_counter_string = calloc(128, sizeof(char));
 	int   game_index;
+	DWORD exit_code;
 	games game[] = {{"DarkSoulsRemastered.exe", {0x1C8A530, 0x98}, 2}};
 	
 
@@ -116,6 +131,7 @@ int main(int argc, char** argv)
 		do
 		{
 			base_address = get_base_address(game[game_index].game_name, pid);
+			if (process_ended(game[game_index].game_name, process_handle)) break;
 		}
 		while (!base_address);
 		process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
@@ -124,6 +140,7 @@ int main(int argc, char** argv)
 		do
 		{
 			ReadProcessMemory(process_handle, (void*)(base_address + game[game_index].offset[0]), &death_addr, sizeof(death_addr), 0);
+			if (process_ended(game[game_index].game_name, process_handle)) break;
 		}
 		while (!death_addr);
 
@@ -135,7 +152,6 @@ int main(int argc, char** argv)
 		printf("death count address: 0x%llX\n", death_addr);
 		sprintf(death_counter_string, "Deaths: %d", deaths);
 
-		DWORD exit_code;
 		while (1)
 		{
 			ReadProcessMemory(process_handle, (void*)(death_addr + game[game_index].offset[game[game_index].offset_count-1]), &new_deaths, sizeof(deaths), 0);
@@ -149,15 +165,10 @@ int main(int argc, char** argv)
 				Sleep(10000);
 			}
 
-			GetExitCodeProcess(process_handle, &exit_code);
-			// printf("exit code: %d\n", exit_code);
-			if (exit_code == 0)
-			{
-				printf("%s has been closed.\n", game[game_index].game_name);
-				break;
-			}
+			if (process_ended(game[game_index].game_name, process_handle)) break;
 			Sleep(200);
 		}
+		Sleep(3000);
 	}
 
 	return 0;
