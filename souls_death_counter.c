@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <TlHelp32.h>
+#include <io.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -97,8 +98,8 @@ int main(int argc, char** argv)
 	u32   pid;
 	u8*   base_address;
 	u64   death_addr;
-	u32   deaths = 0;
-	u32   new_deaths = 0;
+	u32   deaths;
+	u32   new_deaths;
 	void* process_handle = NULL;
 	char* death_counter_string = calloc(128, sizeof(char));
 	int   game_index;
@@ -108,6 +109,9 @@ int main(int argc, char** argv)
 
 	while (1)
 	{
+		deaths = 0;
+		new_deaths = 0;
+		if (!_access("deaths.txt", 0) == 0) print_to_file("Deaths: 0");
 		printf("looking for Souls game process...\n");
 
 		do
