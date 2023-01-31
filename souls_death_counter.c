@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef uint8_t   b8;
 typedef uint8_t   u8;
@@ -36,8 +37,7 @@ u32 get_pid(const char* process_name)
 
 	do
 	{
-		//printf("Checking process %s\n", process_info.szExeFile);
-		if (memcmp(process_name, process_info.szExeFile, sizeof(process_name)) == 0)
+		if (strcmp(process_name, process_info.szExeFile) == 0)
 		{
 			result = process_info.th32ProcessID;
 			break;
@@ -103,8 +103,8 @@ int main(int argc, char** argv)
 	void* process_handle = NULL;
 	char* death_counter_string = calloc(128, sizeof(char));
 	int   game_index;
-	DWORD exit_code;
-	games game[] = {{"DarkSoulsRemastered.exe", {0x1C8A530, 0x98}, 2}};
+	games game[] = {{"DarkSoulsRemastered.exe", {0x1C8A530, 0x98}, 2},
+					{"DarkSoulsIII.exe", 		{0x47572B8, 0x98}, 2}};
 	
 
 	while (1)
@@ -122,7 +122,7 @@ int main(int argc, char** argv)
 				if (pid)
 				{
 					game_index = i;
-					printf("found %s.\n", game[i].game_name);
+					printf("%s found.\n", game[i].game_name);
 					break;
 				}
 			}
