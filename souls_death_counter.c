@@ -107,74 +107,73 @@ int main(int argc, char** argv)
 					{"DarkSoulsIII.exe", 		{0x47572B8, 0x98}, 2}};
 	
 
+	start:
+	deaths = 0;
+	new_deaths = 0;
+	if (!_access("deaths.txt", 0) == 0) print_to_file("Deaths: 0");
+	printf("looking for Souls game process...\n");
+
+	do
+	{
+		for (int i = 0; i < sizeof(game) / sizeof(game[0]); i++)
+		{
+			pid = get_pid(game[i].game_name);
+			if (pid)
+			{
+				game_index = i;
+				printf("%s found.\n", game[i].game_name);
+				break;
+			}
+		}
+		if (!pid) Sleep(500);
+	}
+	while (!pid);
+	process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+
+	printf("process id: %d\n", pid);
+
+	do
+	{
+		base_address = get_base_address(game[game_index].game_name, pid);
+		if (process_ended(game[game_index].game_name, process_handle)) goto start;
+	}
+	while (!base_address);
+	printf("base address: 0x%llX\n", (u64)base_address);
+
+	do
+	{
+		ReadProcessMemory(process_handle, (void*)(base_address + game[game_index].offset[0]), &death_addr, sizeof(death_addr), 0);
+		if (process_ended(game[game_index].game_name, process_handle)) goto start;
+	}
+	while (!death_addr);
+
+	for (int i = 1; i < game[game_index].offset_count-1; i++)
+	{
+		ReadProcessMemory(process_handle, (void*)(death_addr + game[game_index].offset[i]), &death_addr, sizeof(death_addr), 0);
+	}
+	
+	death_addr = death_addr + game[game_index].offset[game[game_index].offset_count-1];
+	printf("death count address: 0x%llX\n", death_addr);
+	sprintf(death_counter_string, "Deaths: %d", deaths);
+
 	while (1)
 	{
-		deaths = 0;
-		new_deaths = 0;
-		if (!_access("deaths.txt", 0) == 0) print_to_file("Deaths: 0");
-		printf("looking for Souls game process...\n");
+		ReadProcessMemory(process_handle, (void*)(death_addr), &new_deaths, sizeof(deaths), 0);
 
-		do
+		if (new_deaths > deaths)
 		{
-			for (int i = 0; i < sizeof(game) / sizeof(game[0]); i++)
-			{
-				pid = get_pid(game[i].game_name);
-				if (pid)
-				{
-					game_index = i;
-					printf("%s found.\n", game[i].game_name);
-					break;
-				}
-			}
-			if (!pid) Sleep(500);
+			deaths = new_deaths;
+			sprintf(death_counter_string, "Deaths: %d", deaths);
+			print_to_file(death_counter_string);
+			printf("%s\n", death_counter_string);
+			Sleep(10000);
 		}
-		while (!pid);
 
-		printf("process id: %d\n", pid);
-
-		do
-		{
-			base_address = get_base_address(game[game_index].game_name, pid);
-			// if (process_ended(game[game_index].game_name, process_handle)) break;
-		}
-		while (!base_address);
-		process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-		printf("base address: 0x%llX\n", (u64)base_address);
-
-		do
-		{
-			ReadProcessMemory(process_handle, (void*)(base_address + game[game_index].offset[0]), &death_addr, sizeof(death_addr), 0);
-			if (process_ended(game[game_index].game_name, process_handle)) break;
-		}
-		while (!death_addr);
-
-		for (int i = 1; i < game[game_index].offset_count-1; i++)
-		{
-			ReadProcessMemory(process_handle, (void*)(death_addr + game[game_index].offset[i]), &death_addr, sizeof(death_addr), 0);
-		}
-		
-		death_addr = death_addr + game[game_index].offset[game[game_index].offset_count-1];
-		printf("death count address: 0x%llX\n", death_addr);
-		sprintf(death_counter_string, "Deaths: %d", deaths);
-
-		while (1)
-		{
-			ReadProcessMemory(process_handle, (void*)(death_addr), &new_deaths, sizeof(deaths), 0);
-
-			if (new_deaths > deaths)
-			{
-				deaths = new_deaths;
-				sprintf(death_counter_string, "Deaths: %d", deaths);
-				print_to_file(death_counter_string);
-				printf("%s\n", death_counter_string);
-				Sleep(10000);
-			}
-
-			if (process_ended(game[game_index].game_name, process_handle)) break;
-			Sleep(200);
-		}
-		Sleep(3000);
+		if (process_ended(game[game_index].game_name, process_handle)) break;
+		Sleep(200);
 	}
+	Sleep(3000);
+	goto start;
 
 	return 0;
 }
