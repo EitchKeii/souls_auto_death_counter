@@ -15,7 +15,7 @@ typedef uint64_t u64;
 typedef struct games
 {
 	char* game_name;
-	int   offset[4];
+	int   offset[7];
 	int   offset_count;
 } games;
 
@@ -87,7 +87,7 @@ b8 process_ended(const char* process_name, void* process_handle)
 	// printf("exit code: %d\n", exit_code);
 	if (exit_code == 0)
 	{
-		printf("%s has been closed.\n", process_name);
+		printf("%s has been closed.\n\n", process_name);
 		return TRUE;
 	}
 	return FALSE;
@@ -101,16 +101,21 @@ int main(int argc, char** argv)
 	u32   deaths;
 	u32   new_deaths;
 	void* process_handle = NULL;
-	char* death_counter_string = calloc(128, sizeof(char));
+	// char* death_counter_string = calloc(128, sizeof(char));
+	char  death_counter_string[128];
+	int   is_wow64;
 	int   game_index;
+	u8 	  addr_size;
 	games game[] = {{"DarkSoulsRemastered.exe", {0x1C8A530, 0x98}, 2},
+					{"DarkSoulsII.exe", 		{0x1150414, 0x74, 0xB8, 0x34, 0x4, 0x28C, 0x100}, 7},
 					{"DarkSoulsIII.exe", 		{0x47572B8, 0x98}, 2}};
 	
 
 	start:
 	deaths = 0;
 	new_deaths = 0;
-	if (!_access("deaths.txt", 0) == 0) print_to_file("Deaths: 0");
+	death_addr = 0;
+	if (_access("deaths.txt", 0) == -1) print_to_file("Deaths: 0");
 	printf("looking for Souls game process...\n");
 
 	do
@@ -129,7 +134,6 @@ int main(int argc, char** argv)
 	}
 	while (!pid);
 	process_handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-
 	printf("process id: %d\n", pid);
 
 	do
@@ -140,27 +144,49 @@ int main(int argc, char** argv)
 	while (!base_address);
 	printf("base address: 0x%llX\n", (u64)base_address);
 
-	do
+	IsWow64Process(process_handle, &is_wow64);
+	if (is_wow64)
 	{
-		ReadProcessMemory(process_handle, (void*)(base_address + game[game_index].offset[0]), &death_addr, sizeof(death_addr), 0);
-		if (process_ended(game[game_index].game_name, process_handle)) goto start;
+		addr_size = sizeof(u32);
+		printf("process architecture: 32bit\n");
 	}
-	while (!death_addr);
-
-	for (int i = 1; i < game[game_index].offset_count-1; i++)
+	else
 	{
-		ReadProcessMemory(process_handle, (void*)(death_addr + game[game_index].offset[i]), &death_addr, sizeof(death_addr), 0);
+		addr_size = sizeof(u64);
+		printf("process architecture: 64bit\n");
 	}
-	
-	death_addr = death_addr + game[game_index].offset[game[game_index].offset_count-1];
-	printf("death count address: 0x%llX\n", death_addr);
-	sprintf(death_counter_string, "Deaths: %d", deaths);
 
 	while (1)
 	{
+		if (deaths == 0 || death_addr == 0)
+		{
+			u64 new_death_addr = 0;
+			while (!new_death_addr)
+			{
+				// printf("looking for death count address\n");
+				ReadProcessMemory(process_handle, (void*)(base_address + game[game_index].offset[0]), &new_death_addr, addr_size, 0);
+				for (int i = 1; i < game[game_index].offset_count-1; i++)
+				{
+					ReadProcessMemory(process_handle, (void*)(new_death_addr + game[game_index].offset[i]), &new_death_addr, addr_size, 0);
+				}
+				if (process_ended(game[game_index].game_name, process_handle)) goto start;
+				if (!new_death_addr) Sleep(1000);
+			}
+			new_death_addr = new_death_addr + game[game_index].offset[game[game_index].offset_count-1];
+			if (new_death_addr != death_addr)
+			{
+				death_addr = new_death_addr;
+				printf("death count address: 0x%llX\n", death_addr);
+			}
+			else 
+			{
+				Sleep(200);
+			}
+		}
+
 		ReadProcessMemory(process_handle, (void*)(death_addr), &new_deaths, sizeof(deaths), 0);
 
-		if (new_deaths > deaths)
+		if (new_deaths != deaths)
 		{
 			deaths = new_deaths;
 			sprintf(death_counter_string, "Deaths: %d", deaths);
@@ -172,7 +198,7 @@ int main(int argc, char** argv)
 		if (process_ended(game[game_index].game_name, process_handle)) break;
 		Sleep(200);
 	}
-	Sleep(3000);
+	Sleep(10000);
 	goto start;
 
 	return 0;
