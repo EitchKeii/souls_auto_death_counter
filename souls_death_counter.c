@@ -108,7 +108,8 @@ int main(int argc, char** argv)
 	u8 	  addr_size;
 	games game[] = {{"DarkSoulsRemastered.exe", {0x1C8A530, 0x98}, 2},
 					{"DarkSoulsII.exe", 		{0x1150414, 0x74, 0xB8, 0x34, 0x4, 0x28C, 0x100}, 7},
-					{"DarkSoulsIII.exe", 		{0x47572B8, 0x98}, 2}};
+					{"DarkSoulsIII.exe", 		{0x47572B8, 0x98}, 2},
+					{"sekiro.exe", 				{0x3D5AAC0, 0x90}, 2}};
 	
 
 	start:

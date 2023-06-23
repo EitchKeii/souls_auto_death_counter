@@ -1,2 +1,6 @@
 # Auto Death Counter for Souls games
-currently only supports Dark Souls: Remastered and Dark Souls III
+Currently supported games:
+* Dark Souls: Remastered
+* Dark Souls II (32bit)
+* Dark Souls III
+* Sekiro
